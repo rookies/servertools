@@ -6,6 +6,7 @@
 	$f = fopen($argv[1], 'r') or die;
 	while (($line = fgets($f)) !== false)
 	{
+		$line = preg_replace('/  /', ' ', $line);
 		$line = explode(' ', $line, 6);
 		if (substr($line[4], 0, 13) == 'postfix/smtpd')
 		{
@@ -111,7 +112,10 @@
 	/*
 	 * Calculate longest cipher length for better output:
 	*/
-	$cipherlen = max(array_map(function ($v) { return strlen($v); }, array_keys($ciphers)));
+	if (count($ciphers) == 0)
+		$cipherlen = 8;
+	else
+		$cipherlen = max(array_map(function ($v) { return strlen($v); }, array_keys($ciphers)));
 	/*
 	 * Check if we have a host with more than one cipher:
 	*/
