@@ -30,7 +30,7 @@
 			else if (substr($line[5], 0, 42) == 'Anonymous TLS connection established from ')
 			{
 				$x = substr($line[5], 42);
-				$x = explode(':', $x);
+				$x = explode(']', $x);
 				$cipher = explode('cipher', $x[1]);
 				$cipher = trim($cipher[1]);
 				$host = explode('[', $x[0]);
