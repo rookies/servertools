@@ -1,0 +1,81 @@
+#!/bin/bash
+
+## Pfad zu den *.pem-Zertifikaten:
+CERTPATH="/etc/certs"
+## Pfad zur Datei, in der gesendete Warnungen gespeichert werden:
+SAVEFILE="/var/spool/check_certs.sav"
+## Warnungen bei X Tagen Restlaufzeit, -1=deaktiviert, absteigend sortiert:
+WARNING1="30"
+WARNING2="7"
+WARNING3="1"
+## Sender, Empfänger und Betreff der Mails:
+SENDER="root"
+SENDER_NAME="Zertifikats-Check"
+RECIPIENT="root"
+SUBJECT="Zertifikats-Check - WARNUNG"
+## DEBUG-Modus:
+DEBUG=0
+
+debug()
+{
+	[[ $DEBUG -eq 1 ]] && echo "$1"
+}
+
+check_warning()
+{
+	CERT_B=$(basename "$1")
+	debug "Beginne check_warning für $CERT_B, $2 Tag(e) ..."
+	if [[ "$2" != "-1" ]]; then
+		debug " -> Aktiviert."
+		# Warnung aktiviert.
+		# Prüfe Zertifikat-Restlaufzeit:
+		openssl x509 -in "$1" -checkend $(expr $2 \* 86400) > /dev/null
+		if [[ $? -eq 1 ]]; then
+			debug " -> Restlaufzeit überschritten."
+			# Warnungs-Restlaufzeit überschritten.
+			# Prüfe, ob Warnung schon gesendet:
+			cat "$SAVEFILE" | grep -e "^$CERT_B $2\$" > /dev/null
+			if [[ $? -eq 1 ]]; then
+				debug " -> Warnung noch nicht gesendet."
+				# Warnung noch nicht gesendet.
+				# Warnung senden:
+				TMPFILE=$(mktemp)
+				echo "Subject: $SUBJECT" >> "$TMPFILE"
+				echo "" >> "$TMPFILE"
+				echo "Das Zertifikat $CERT_B läuft in $2 Tagen aus." >> "$TMPFILE"
+				cat "$TMPFILE" | sendmail -f "$SENDER" -F "$SENDER_NAME" -t "$RECIPIENT"
+				rm -f "$TMPFILE"
+				# Warnung abhaken:
+				echo "$CERT_B $2" >> "$SAVEFILE"
+				# Warnung gesendet:
+				debug " -> Warnung jetzt gesendet."
+				return 0
+			else
+				debug " -> Warnung schon gesendet."
+			fi
+		else
+			debug " -> Restlaufzeit okay."
+		fi
+	else
+		debug " -> Deaktiviert."
+	fi
+	# Keine Warnung gesendet:
+	return 1
+}
+
+echo "==== CERTIFICATE CHECK ===="
+## Prüfen, ob das SAVEFILE beschreibbar ist:
+[[ -w $SAVEFILE ]] || touch $SAVEFILE 2> /dev/null || (echo "$SAVEFILE not writable or creatable!" && exit 1)
+## Zertifikate durchlaufen:
+for cert in $CERTPATH/*.pem; do
+	echo "--> Checking certificate ${cert}..."
+	check_warning "$cert" "$WARNING3"
+	if [[ $? -eq 1 ]]; then
+		check_warning "$cert" "$WARNING2"
+		if [[ $? -eq 1 ]]; then
+			check_warning "$cert" "$WARNING1"
+		fi
+	fi
+	#openssl x509 -in "$cert" -dates | grep notAfter
+done
+exit 0
