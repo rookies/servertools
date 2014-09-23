@@ -101,6 +101,7 @@
 				$ciphers[$k] = $c;
 		});
 	});
+	arsort($ciphers);
 	/*
 	 * Remove hosts that connected but haven't send any mail:
 	*/
@@ -176,8 +177,11 @@
 	}
 	echo 'Cipher Summary'."\n";
 	echo '--------------'."\n";
+	$baroffset = 0;
 	foreach ($ciphers as $cipher => $count)
 	{
-		printf('%7d   %'.$cipherlen.'s   [%20s] %2.1f%%'."\n", $count, $cipher, str_repeat('=', intval($count/array_sum($ciphers)*20)), $count/array_sum($ciphers)*100);
+		$len = intval($count/array_sum($ciphers)*20);
+		printf('%7d   %'.$cipherlen.'s   [%s%s%s] %2.1f%%'."\n", $count, $cipher, str_repeat(' ', $baroffset), str_repeat('=', $len), str_repeat(' ', 20-($baroffset+$len)), $count/array_sum($ciphers)*100);
+		$baroffset += $len;
 	}
 ?>
